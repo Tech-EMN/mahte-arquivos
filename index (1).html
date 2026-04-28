@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Análise de Documentos - MAHTE</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f4f7f6; margin: 0; }
+        .upload-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 450px; max-height: 90vh; overflow-y: auto; }
+        h2 { text-align: center; }
+        #status { margin-top: 1rem; color: #555; text-align: center; font-weight: bold; }
+        
+        button.main-btn { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 15px; font-size: 16px; font-weight: bold;}
+        button.main-btn:disabled { background: #ccc; cursor: not-allowed; }
+        
+        /* Estilizando o botão de upload para "Adicionar Arquivos" */
+        .file-input-wrapper { margin-bottom: 15px; text-align: center; }
+        .file-input-wrapper input[type="file"] { display: none; /* Esconde o botão feio padrão do navegador */ }
+        .custom-file-upload { display: inline-block; background: #28a745; color: white; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%; box-sizing: border-box; font-weight: bold; transition: 0.3s;}
+        .custom-file-upload:hover { background: #218838; }
+
+        /* Estilos da lista e quebra de texto (overflow) */
+        .file-list { background: #f9f9f9; padding: 10px; border-radius: 4px; border: 1px solid #ddd; margin-top: 15px; }
+        .file-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 8px;}
+        .file-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        
+        /* Garante que o texto longo quebre de linha e não vaze a caixa */
+        .file-info { display: flex; align-items: center; gap: 8px; max-width: 85%; }
+        .file-name { word-break: break-all; font-size: 14px; color: #333; line-height: 1.4;}
+        
+        /* Botão de X vermelho */
+        .remove-btn { color: #dc3545; background: none; border: none; cursor: pointer; font-weight: bold; font-size: 16px; padding: 5px; border-radius: 4px;}
+        .remove-btn:hover { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <div class="upload-container">
+        <h2>Análise MAHTE Group</h2>
+        
+        <div class="file-input-wrapper">
+            <label style="text-align: left; display: block; font-weight: bold; margin-bottom: 5px;">Documentos da Análise:</label>
+            <small style="text-align: left; display: block; margin-bottom: 12px; color: #666;">Adicione o arquivo principal e os documentos de apoio. Você pode adicioná-los um de cada vez.</small>
+            
+            <label for="fileInput" class="custom-file-upload">
+                + Adicionar Arquivos
+            </label>
+            <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.jpg,.png" />
+        </div>
+
+        <div id="selectionArea" class="file-list" style="display: none;">
+            <label style="color: #d9534f; display: block; margin-bottom: 10px; font-weight: bold; font-size: 14px;">Selecione qual é o arquivo PRINCIPAL:</label>
+            <div id="fileList"></div>
+        </div>
+
+        <button onclick="enviarDocumentos()" id="btnEnviar" class="main-btn" disabled>Iniciar Análise</button>
+        <p id="status"></p>
+    </div>
+
+    <script>
+        // Array global que vai guardar todos os arquivos adicionados
+        let selectedFilesArray = [];
+        let mainFileIndex = null;
+        
+        const fileInput = document.getElementById('fileInput');
+        const selectionArea = document.getElementById('selectionArea');
+        const fileList = document.getElementById('fileList');
+        const btnEnviar = document.getElementById('btnEnviar');
+        const status = document.getElementById('status');
+
+        // Escuta quando o usuário escolhe arquivos
+        fileInput.addEventListener('change', (e) => {
+            const newFiles = Array.from(e.target.files);
+            if (newFiles.length > 0) {
+                // Ao invés de substituir, nós concatenamos (adicionamos) à lista existente
+                selectedFilesArray = selectedFilesArray.concat(newFiles);
+                renderFileList();
+            }
+            // Limpa o valor do input. Isso permite que o usuário adicione um arquivo, exclua, e adicione o MESMO arquivo novamente se quiser.
+            fileInput.value = '';
+        });
+
+        // Função para remover arquivo da lista
+        function removeFile(index) {
+            selectedFilesArray.splice(index, 1); // Remove 1 item na posição 'index'
+            
+            // Lógica de segurança para o Radio Button
+            if (mainFileIndex === index) {
+                mainFileIndex = null; // Se apagou o principal, reseta a escolha
+            } else if (mainFileIndex > index) {
+                mainFileIndex--; // Se apagou um arquivo acima do principal, ajusta o índice
+            }
+            
+            renderFileList(); // Atualiza a tela
+        }
+
+        // Função chamada quando clica no radio button
+        function setMainFile(index) {
+            mainFileIndex = index;
+            btnEnviar.disabled = false; // Libera o botão de envio
+        }
+
+        // Função que desenha a lista de arquivos na tela
+        function renderFileList() {
+            fileList.innerHTML = '';
+            
+            // Se apagou tudo, esconde a caixa
+            if (selectedFilesArray.length === 0) {
+                selectionArea.style.display = 'none';
+                btnEnviar.disabled = true;
+                mainFileIndex = null;
+                return;
+            }
+
+            selectionArea.style.display = 'block';
+            
+            // Se só tem 1 arquivo na lista, ele vira o principal automaticamente
+            if (selectedFilesArray.length === 1) {
+                mainFileIndex = 0;
+                btnEnviar.disabled = false;
+            } else if (mainFileIndex === null) {
+                btnEnviar.disabled = true; // Tem mais de 1 mas nenhum selecionado
+            }
+
+            // Desenha cada arquivo
+            selectedFilesArray.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+
+                // Container da info (radio + texto)
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'file-info';
+
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'mainFileOption';
+                radio.value = index;
+                radio.checked = (index === mainFileIndex);
+                radio.onchange = () => setMainFile(index);
+
+                const label = document.createElement('span');
+                label.className = 'file-name';
+                label.innerText = file.name;
+
+                infoDiv.appendChild(radio);
+                infoDiv.appendChild(label);
+
+                // Botão de remover (X)
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.innerHTML = '✕';
+                removeBtn.onclick = () => removeFile(index);
+
+                div.appendChild(infoDiv);
+                div.appendChild(removeBtn);
+                
+                fileList.appendChild(div);
+            });
+        }
+
+        async function enviarDocumentos() {
+            if (mainFileIndex === null || selectedFilesArray.length === 0) return;
+
+            status.innerText = "Processando análise... Aguarde.";
+            btnEnviar.disabled = true;
+
+            const formData = new FormData();
+
+            // Monta o FormData exatamente do jeito que o n8n espera
+            selectedFilesArray.forEach((file, index) => {
+                if (index === mainFileIndex) {
+                    formData.append('mainFile', file);
+                } else {
+                    formData.append(`baseFile_${index}`, file);
+                }
+            });
+
+            try {
+                // AQUI VOCÊ DEVE MANTER A SUA URL DE PRODUÇÃO DO N8N
+                const response = await fetch('https://n8n.servidoremn.site/webhook/analise-mahte', { 
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = "Relatorio_Conformidade_MAHTE.pdf"; 
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    status.innerText = "Análise concluída! O download iniciou.";
+                } else {
+                    status.innerText = "Erro no processamento da IA.";
+                }
+            } catch (error) {
+                console.error(error);
+                status.innerText = "Erro ao conectar com o servidor.";
+            } finally {
+                btnEnviar.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
